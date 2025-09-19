@@ -1,6 +1,6 @@
 version: 1
 applications:
-  - appRoot: apps/web
+  - appRoot: .
     backend:
       phases:
         build:
@@ -11,10 +11,10 @@ applications:
       phases:
         preBuild:
           commands:
-            - npm ci
+            - npm --prefix apps/web ci
         build:
           commands:
-            - npm run build
+            - npm --prefix apps/web run build
       artifacts:
         baseDirectory: apps/web/dist
         files:
