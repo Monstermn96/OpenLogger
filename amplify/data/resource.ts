@@ -14,6 +14,7 @@ const schema = a.schema({
       nickname: a.string(),
       owner: a.string(),
       sessions: a.hasMany('LogSession', 'vehicleId'),
+      profiles: a.hasMany('ECUProfile', 'vehicleId'),
     })
     .authorization((allow) => [allow.owner()]),
 
