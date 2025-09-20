@@ -6,13 +6,10 @@ applications:
         preBuild:
           commands:
             - echo "Checking CDK Bootstrap..."
-            - export AWS_REGION=us-east-1
-            - export CDK_DEFAULT_ACCOUNT=630658076165
-            - export CDK_DEFAULT_REGION=us-east-1
         build:
           commands:
             - npm install
-            - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID --outputs-out-dir .
+            - CDK_DEFAULT_ACCOUNT=630658076165 CDK_DEFAULT_REGION=us-east-1 npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID --outputs-out-dir .
     frontend:
       phases:
         preBuild:
