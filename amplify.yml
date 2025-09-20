@@ -5,11 +5,19 @@ applications:
       phases:
         preBuild:
           commands:
-            - echo "Checking CDK Bootstrap..."
+            - echo "Checking AWS environment..."
+            - aws sts get-caller-identity || true
+            - echo "Setting up CDK environment..."
         build:
           commands:
             - npm install
-            - CDK_DEFAULT_ACCOUNT=630658076165 CDK_DEFAULT_REGION=us-east-1 npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID --outputs-out-dir .
+            - echo "Configuring CDK for deployment..."
+            - |
+              export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+              export CDK_DEFAULT_REGION=$AWS_DEFAULT_REGION
+              echo "CDK_DEFAULT_ACCOUNT=$CDK_DEFAULT_ACCOUNT"
+              echo "CDK_DEFAULT_REGION=$CDK_DEFAULT_REGION"
+              npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID --outputs-out-dir .
     frontend:
       phases:
         preBuild:
