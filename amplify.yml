@@ -3,6 +3,10 @@ applications:
   - appRoot: .
     backend:
       phases:
+        preBuild:
+          commands:
+            - echo "Checking CDK Bootstrap..."
+            - export AWS_REGION=us-east-1
         build:
           commands:
             - npm install
