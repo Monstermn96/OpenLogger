@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { VehicleData, ConnectionStatus, OBD2Reading } from '../types/obd2.types';
+import type { VehicleData, ConnectionStatus, OBD2Reading } from '../types/obd2.types';
 import obd2Service from '../services/obd2BluetoothService';
 import {
   createSession,

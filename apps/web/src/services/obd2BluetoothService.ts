@@ -1,11 +1,10 @@
 import { ALL_PARAMETERS } from '../constants/obd2Parameters';
-import { ConnectionStatus, OBD2Reading, VehicleData } from '../types/obd2.types';
+import type { ConnectionStatus, OBD2Reading, VehicleData } from '../types/obd2.types';
 
-class OBD2BluetoothService {
+export class OBD2BluetoothService {
   private device: BluetoothDevice | null = null;
   private server: BluetoothRemoteGATTServer | null = null;
   private characteristic: BluetoothRemoteGATTCharacteristic | null = null;
-  private isInitialized = false;
   
   // Standard Bluetooth UUIDs for Serial Port Profile
   private readonly SPP_SERVICE_UUID = '00001101-0000-1000-8000-00805f9b34fb';
@@ -56,7 +55,6 @@ class OBD2BluetoothService {
     this.device = null;
     this.server = null;
     this.characteristic = null;
-    this.isInitialized = false;
   }
 
   private async initializeOBD2(): Promise<void> {
@@ -70,8 +68,6 @@ class OBD2BluetoothService {
     await this.sendCommand('ATS0'); // Spaces off
     await this.sendCommand('ATH0'); // Headers off
     await this.sendCommand('ATSP0'); // Auto protocol
-    
-    this.isInitialized = true;
   }
 
   private async sendCommand(command: string): Promise<string> {
@@ -240,4 +236,5 @@ class OBD2BluetoothService {
   }
 }
 
-export default new OBD2BluetoothService();
+const obd2BluetoothServiceSingleton = new OBD2BluetoothService();
+export default obd2BluetoothServiceSingleton;

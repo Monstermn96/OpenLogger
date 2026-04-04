@@ -10,11 +10,9 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent,
   Card,
   CardContent,
   Alert,
-  Divider,
   FormGroup,
   FormControlLabel,
   Checkbox,
@@ -29,6 +27,7 @@ import {
   Timer as TimerIcon,
   Storage as StorageIcon,
 } from '@mui/icons-material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { toast } from 'react-hot-toast';
 import useOBD2Store from '../store/useOBD2Store';
 import { ALL_PARAMETERS, PARAMETER_CATEGORIES, DEFAULT_LOGGING_PARAMETERS } from '../constants/obd2Parameters';
@@ -41,7 +40,6 @@ const DataLogging: React.FC = () => {
     selectedParameters,
     loggingInterval,
     currentSession,
-    currentData,
     startLogging,
     stopLogging,
     setSelectedParameters,

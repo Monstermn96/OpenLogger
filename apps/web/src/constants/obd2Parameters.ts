@@ -1,4 +1,4 @@
-import { OBD2Parameter } from '../types/obd2.types';
+import type { OBD2Parameter } from '../types/obd2.types';
 
 export const OBD2_PARAMETERS: Record<string, OBD2Parameter> = {
   // Standard OBD2 PIDs (Mode 01)

@@ -33,7 +33,6 @@ import {
   getSession,
   deleteSession,
   exportSessionCsv,
-  type SessionSummary,
   type SessionDetail,
 } from '../services/sessionService';
 import LiveChart from '../components/LiveChart';

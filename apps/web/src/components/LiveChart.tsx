@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { format } from 'date-fns';
-import { OBD2Reading } from '../types/obd2.types';
+import type { OBD2Reading } from '../types/obd2.types';
 
 interface LiveChartProps {
   title: string;

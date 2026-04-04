@@ -36,7 +36,7 @@ import {
 import { toast } from 'react-hot-toast';
 import useOBD2Store from '../store/useOBD2Store';
 import useSettingsStore from '../store/useSettingsStore';
-import OBD2BluetoothService from '../services/obd2BluetoothService';
+import { OBD2BluetoothService } from '../services/obd2BluetoothService';
 import {
   listVehicles,
   createVehicle,
