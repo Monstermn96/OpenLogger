@@ -106,7 +106,11 @@ async def register(
     except NexusError as e:
         if e.status_code == 409:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Registration failed")
+        if e.status_code == 0:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=e.detail)
+        if 400 <= e.status_code < 500:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.detail)
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=e.detail)
 
     user = await _get_or_create_local_user(db, result["user_id"], result["username"])
     await db.commit()
