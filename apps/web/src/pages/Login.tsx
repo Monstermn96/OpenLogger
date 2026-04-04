@@ -14,6 +14,8 @@ import {
 import { Speed as SpeedIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
+const USERNAME_PATTERN = /^[a-zA-Z0-9_]{2,16}$/;
+
 const Login: React.FC = () => {
   const { login, register } = useAuth();
   const [tab, setTab] = useState(0);
@@ -29,6 +31,16 @@ const Login: React.FC = () => {
 
     if (tab === 1 && password !== confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+
+    if (!USERNAME_PATTERN.test(username.trim())) {
+      setError('Username must be 2–16 characters: letters, numbers, and underscores only');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
@@ -94,6 +106,7 @@ const Login: React.FC = () => {
               sx={{ mb: 2 }}
               autoComplete="username"
               required
+              helperText="2–16 characters: letters, numbers, underscores"
             />
             <TextField
               fullWidth

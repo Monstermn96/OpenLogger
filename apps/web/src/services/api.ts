@@ -1,5 +1,25 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+/** FastAPI may return detail as a string, object, or array of validation errors */
+function formatApiErrorBody(body: unknown, fallback: string): string {
+  if (!body || typeof body !== 'object') return fallback;
+  const detail = (body as { detail?: unknown }).detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail.map((item) => {
+      if (item && typeof item === 'object' && 'msg' in item) {
+        return String((item as { msg: string }).msg);
+      }
+      return JSON.stringify(item);
+    });
+    return parts.filter(Boolean).join(' ') || fallback;
+  }
+  if (detail && typeof detail === 'object' && 'msg' in detail) {
+    return String((detail as { msg: string }).msg);
+  }
+  return fallback;
+}
+
 interface TokenPair {
   access_token: string;
   refresh_token: string;
@@ -85,8 +105,8 @@ export async function apiFetch<T>(
   if (res.status === 204) return undefined as T;
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(body.detail || `API error ${res.status}`);
+    const body = await res.json().catch(() => ({}));
+    throw new Error(formatApiErrorBody(body, `API error ${res.status}`));
   }
 
   return res.json();
@@ -99,8 +119,8 @@ export async function apiLogin(username: string, password: string): Promise<Toke
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: 'Login failed' }));
-    throw new Error(body.detail || 'Login failed');
+    const body = await res.json().catch(() => ({}));
+    throw new Error(formatApiErrorBody(body, 'Login failed'));
   }
   const data: TokenPair = await res.json();
   setTokens(data);
@@ -114,8 +134,8 @@ export async function apiRegister(username: string, password: string): Promise<T
     body: JSON.stringify({ username, password }),
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ detail: 'Registration failed' }));
-    throw new Error(body.detail || 'Registration failed');
+    const body = await res.json().catch(() => ({}));
+    throw new Error(formatApiErrorBody(body, 'Registration failed'));
   }
   const data: TokenPair = await res.json();
   setTokens(data);
