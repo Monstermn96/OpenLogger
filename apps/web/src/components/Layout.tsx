@@ -32,24 +32,24 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useOBD2Store from '../store/useOBD2Store';
+import { useAuth } from '../contexts/AuthContext';
 
 const drawerWidth = 240;
 
 interface LayoutProps {
   children: React.ReactNode;
-  user: any;
-  signOut: () => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user, signOut }) => {
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  
+
   const { connectionStatus } = useOBD2Store();
+  const { username, logout } = useAuth();
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -63,9 +63,9 @@ const Layout: React.FC<LayoutProps> = ({ children, user, signOut }) => {
     setAnchorEl(null);
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     handleUserMenuClose();
-    signOut();
+    await logout();
   };
 
   const menuItems = [
@@ -124,8 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, signOut }) => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {menuItems.find(item => item.path === location.pathname)?.text || 'OpenLogger'}
           </Typography>
-          
-          {/* Connection Status */}
+
           <Chip
             icon={connectionStatus.isConnected ? <BluetoothIcon /> : <BluetoothDisabledIcon />}
             label={connectionStatus.isConnected ? 'Connected' : 'Disconnected'}
@@ -134,11 +133,10 @@ const Layout: React.FC<LayoutProps> = ({ children, user, signOut }) => {
             size="small"
             sx={{ mr: 2 }}
           />
-          
-          {/* User Menu */}
+
           <IconButton onClick={handleUserMenuOpen} color="inherit">
             <Avatar sx={{ width: 32, height: 32 }}>
-              {user?.attributes?.email?.[0]?.toUpperCase() || <PersonIcon />}
+              {username?.[0]?.toUpperCase() || <PersonIcon />}
             </Avatar>
           </IconButton>
           <Menu
@@ -151,7 +149,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, signOut }) => {
             }}
           >
             <MenuItem disabled>
-              <Typography variant="body2">{user?.attributes?.email}</Typography>
+              <Typography variant="body2">{username}</Typography>
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleSignOut}>
@@ -163,7 +161,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, signOut }) => {
           </Menu>
         </Toolbar>
       </AppBar>
-      
+
       <Box
         component="nav"
         sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
@@ -173,7 +171,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, signOut }) => {
           open={isMobile ? mobileOpen : true}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
+            keepMounted: true,
           }}
           sx={{
             '& .MuiDrawer-paper': {
@@ -185,7 +183,7 @@ const Layout: React.FC<LayoutProps> = ({ children, user, signOut }) => {
           {drawer}
         </Drawer>
       </Box>
-      
+
       <Box
         component="main"
         sx={{

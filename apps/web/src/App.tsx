@@ -1,25 +1,15 @@
-import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, CircularProgress, Box } from '@mui/material';
 import { Toaster } from 'react-hot-toast';
-import { Amplify } from 'aws-amplify';
-import { Authenticator } from '@aws-amplify/ui-react';
-import '@aws-amplify/ui-react/styles.css';
 
-// Import pages
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Dashboard from './pages/Dashboard';
 import DataLogging from './pages/DataLogging';
 import Sessions from './pages/Sessions';
 import Settings from './pages/Settings';
+import Login from './pages/Login';
 import Layout from './components/Layout';
 
-// Import Amplify configuration
-import amplifyconfig from './amplifyconfiguration.json';
-
-// Configure Amplify
-Amplify.configure(amplifyconfig);
-
-// Create dark theme
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
@@ -50,14 +40,37 @@ const darkTheme = createTheme({
   },
 });
 
-function App() {
-  useEffect(() => {
-    // Check for Web Bluetooth API support
-    if (!('bluetooth' in navigator)) {
-      console.warn('Web Bluetooth API is not supported in this browser');
-    }
-  }, []);
+function AppRoutes() {
+  const { isAuthenticated, isLoading } = useAuth();
 
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  return (
+    <Router>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/logging" element={<DataLogging />} />
+          <Route path="/sessions" element={<Sessions />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </Layout>
+    </Router>
+  );
+}
+
+function App() {
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
@@ -70,21 +83,9 @@ function App() {
           },
         }}
       />
-      <Authenticator>
-        {({ signOut, user }) => (
-          <Router>
-            <Layout user={user} signOut={signOut}>
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/logging" element={<DataLogging />} />
-                <Route path="/sessions" element={<Sessions />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
-            </Layout>
-          </Router>
-        )}
-      </Authenticator>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

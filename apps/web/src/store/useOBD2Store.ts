@@ -1,9 +1,16 @@
 import { create } from 'zustand';
 import { VehicleData, ConnectionStatus, OBD2Reading } from '../types/obd2.types';
 import obd2Service from '../services/obd2BluetoothService';
+import {
+  createSession,
+  updateSession,
+  bulkCreateLogs,
+  type SessionSummary,
+} from '../services/sessionService';
 
 interface LoggingSession {
   id: string;
+  remoteId?: number;
   startTime: Date;
   endTime?: Date;
   parameters: string[];
@@ -11,32 +18,32 @@ interface LoggingSession {
   isActive: boolean;
 }
 
+const LOG_BATCH_SIZE = 50;
+
 interface OBD2Store {
-  // Connection state
   connectionStatus: ConnectionStatus;
-  
-  // Current vehicle data
   currentData: VehicleData;
-  
-  // Logging state
   isLogging: boolean;
   selectedParameters: string[];
   loggingInterval: number;
   currentSession: LoggingSession | null;
-  sessions: LoggingSession[];
-  
-  // Actions
+  sessions: SessionSummary[];
+  activeVehicleId: number | null;
+
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   startLogging: () => Promise<void>;
-  stopLogging: () => void;
+  stopLogging: () => Promise<void>;
   setSelectedParameters: (parameters: string[]) => void;
   setLoggingInterval: (interval: number) => void;
-  exportSession: (sessionId: string) => void;
+  setActiveVehicleId: (id: number | null) => void;
+  setSessions: (sessions: SessionSummary[]) => void;
 }
 
+let stopLoggingFn: (() => void) | null = null;
+let pendingBatch: { timestamp: string; data: Record<string, number> }[] = [];
+
 const useOBD2Store = create<OBD2Store>((set, get) => ({
-  // Initial state
   connectionStatus: { isConnected: false },
   currentData: {},
   isLogging: false,
@@ -44,184 +51,179 @@ const useOBD2Store = create<OBD2Store>((set, get) => ({
   loggingInterval: 100,
   currentSession: null,
   sessions: [],
-  
-  // Connect to OBD2 device
+  activeVehicleId: null,
+
   connect: async () => {
     const status = await obd2Service.connect();
     set({ connectionStatus: status });
   },
-  
-  // Disconnect from OBD2 device
+
   disconnect: async () => {
     const { isLogging } = get();
     if (isLogging) {
-      get().stopLogging();
+      await get().stopLogging();
     }
     await obd2Service.disconnect();
-    set({ 
+    set({
       connectionStatus: { isConnected: false },
-      currentData: {}
+      currentData: {},
     });
   },
-  
-  // Start logging data
+
   startLogging: async () => {
-    const { selectedParameters, loggingInterval } = get();
-    
-    // Create new session
+    const { selectedParameters, loggingInterval, activeVehicleId } = get();
+    pendingBatch = [];
+
+    let remoteSession: SessionSummary | undefined;
+    try {
+      remoteSession = await createSession({
+        vehicle_id: activeVehicleId,
+        start_time: new Date().toISOString(),
+        parameters: selectedParameters,
+      });
+    } catch {
+      // continue with local-only if backend is unreachable
+    }
+
     const session: LoggingSession = {
       id: Date.now().toString(),
+      remoteId: remoteSession?.id,
       startTime: new Date(),
       parameters: selectedParameters,
       readings: [],
-      isActive: true
+      isActive: true,
     };
-    
-    set({ 
+
+    set({
       isLogging: true,
-      currentSession: session
+      currentSession: session,
     });
-    
-    // Start logging loop
-    const stopFunction = await obd2Service.startLogging(
+
+    const stop = await obd2Service.startLogging(
       selectedParameters,
       (data) => {
         const { currentSession } = get();
         if (!currentSession) return;
-        
-        // Update current data
+
         set({ currentData: data });
-        
-        // Add readings to session
-        const readings: OBD2Reading[] = [];
+
         const timestamp = new Date();
-        
-        // Convert VehicleData to OBD2Readings
+        const readings: OBD2Reading[] = [];
+        const dataRecord: Record<string, number> = {};
+
         Object.entries(data).forEach(([key, value]) => {
           if (value !== undefined) {
-            readings.push({
-              parameter: key,
-              value,
-              unit: getUnitForParameter(key),
-              timestamp
-            });
+            readings.push({ parameter: key, value, unit: getUnitForParameter(key), timestamp });
+            dataRecord[key] = value;
           }
         });
-        
-        // Update session
-        set(state => ({
-          currentSession: state.currentSession ? {
-            ...state.currentSession,
-            readings: [...state.currentSession.readings, ...readings]
-          } : null
+
+        pendingBatch.push({ timestamp: timestamp.toISOString(), data: dataRecord });
+
+        set((state) => ({
+          currentSession: state.currentSession
+            ? { ...state.currentSession, readings: [...state.currentSession.readings, ...readings] }
+            : null,
         }));
+
+        if (currentSession.remoteId && pendingBatch.length >= LOG_BATCH_SIZE) {
+          const toSend = [...pendingBatch];
+          pendingBatch = [];
+          bulkCreateLogs(currentSession.remoteId, toSend).catch(() => {
+            pendingBatch.unshift(...toSend);
+          });
+        }
       },
-      loggingInterval
+      loggingInterval,
     );
-    
-    // Store stop function
-    (window as any).__stopLogging = stopFunction;
+
+    stopLoggingFn = stop;
   },
-  
-  // Stop logging data
-  stopLogging: () => {
-    // Call stop function if it exists
-    if ((window as any).__stopLogging) {
-      (window as any).__stopLogging();
-      delete (window as any).__stopLogging;
+
+  stopLogging: async () => {
+    if (stopLoggingFn) {
+      stopLoggingFn();
+      stopLoggingFn = null;
     }
-    
+
     const { currentSession } = get();
     if (currentSession) {
-      // Finalize session
-      const finalizedSession = {
-        ...currentSession,
-        endTime: new Date(),
-        isActive: false
-      };
-      
-      set(state => ({
+      const endTime = new Date();
+
+      if (currentSession.remoteId) {
+        if (pendingBatch.length > 0) {
+          const toSend = [...pendingBatch];
+          pendingBatch = [];
+          try {
+            await bulkCreateLogs(currentSession.remoteId, toSend);
+          } catch { /* best effort */ }
+        }
+        try {
+          await updateSession(currentSession.remoteId, {
+            vehicle_id: null,
+            start_time: currentSession.startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            parameters: currentSession.parameters,
+          });
+        } catch { /* best effort */ }
+      }
+
+      set((state) => ({
         isLogging: false,
         currentSession: null,
-        sessions: [...state.sessions, finalizedSession]
+        sessions: [
+          {
+            id: currentSession.remoteId || parseInt(currentSession.id),
+            vehicle_id: null,
+            start_time: currentSession.startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            parameters: currentSession.parameters,
+            notes: null,
+            log_count: currentSession.readings.length,
+          },
+          ...state.sessions,
+        ],
       }));
     } else {
       set({ isLogging: false });
     }
+    pendingBatch = [];
   },
-  
-  // Set selected parameters
+
   setSelectedParameters: (parameters) => {
     set({ selectedParameters: parameters });
   },
-  
-  // Set logging interval
+
   setLoggingInterval: (interval) => {
     set({ loggingInterval: interval });
   },
-  
-  // Export session data
-  exportSession: (sessionId) => {
-    const { sessions } = get();
-    const session = sessions.find(s => s.id === sessionId);
-    
-    if (!session) return;
-    
-    // Convert to CSV format
-    const headers = ['Timestamp', ...session.parameters];
-    const rows = [headers.join(',')];
-    
-    // Group readings by timestamp
-    const readingsByTime = new Map<number, Record<string, number>>();
-    
-    session.readings.forEach(reading => {
-      const time = reading.timestamp.getTime();
-      if (!readingsByTime.has(time)) {
-        readingsByTime.set(time, {});
-      }
-      readingsByTime.get(time)![reading.parameter] = reading.value;
-    });
-    
-    // Create CSV rows
-    readingsByTime.forEach((data, timestamp) => {
-      const row = [new Date(timestamp).toISOString()];
-      session.parameters.forEach(param => {
-        row.push(data[param]?.toString() || '');
-      });
-      rows.push(row.join(','));
-    });
-    
-    // Download CSV
-    const csv = rows.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `obd2_log_${sessionId}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+
+  setActiveVehicleId: (id) => {
+    set({ activeVehicleId: id });
+  },
+
+  setSessions: (sessions) => {
+    set({ sessions });
+  },
 }));
 
-// Helper function to get unit for parameter
 function getUnitForParameter(parameter: string): string {
   const units: Record<string, string> = {
     rpm: 'rpm',
     speed: 'km/h',
-    coolantTemp: '°C',
-    intakeTemp: '°C',
+    coolantTemp: '\u00B0C',
+    intakeTemp: '\u00B0C',
     throttlePosition: '%',
     engineLoad: '%',
-    timingAdvance: '°',
+    timingAdvance: '\u00B0',
     maf: 'g/s',
     boostPressure: 'PSI',
-    engineOilTemp: '°C',
+    engineOilTemp: '\u00B0C',
     fuelRailPressure: 'kPa',
     fuelLevel: '%',
     barometricPressure: 'kPa',
-    turboRpm: 'rpm'
+    turboRpm: 'rpm',
   };
-  
   return units[parameter] || '';
 }
 

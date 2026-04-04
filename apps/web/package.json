@@ -12,8 +12,6 @@
   "dependencies": {
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "@aws-amplify/ui-react": "^6.0.0",
-    "aws-amplify": "^6.0.0",
     "@mui/material": "^5.15.0",
     "@emotion/react": "^11.11.0",
     "@emotion/styled": "^11.11.0",

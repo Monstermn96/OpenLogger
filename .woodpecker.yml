@@ -1,0 +1,26 @@
+steps:
+  - name: sync-latest
+    image: alpine:latest
+    commands:
+      - apk add --no-cache rsync
+      - rsync -a --delete --exclude='.git' --exclude='__pycache__' --exclude='.venv' --exclude='node_modules' --exclude='data' ./ /home/eric/projects/openlogger/
+
+  - name: setup-services-dir
+    image: alpine:latest
+    commands:
+      - mkdir -p /home/eric/services/webapps/openlogger
+      - cp /home/eric/projects/openlogger/docker-compose.prod.yml /home/eric/services/webapps/openlogger/docker-compose.yml
+      - test -f /home/eric/services/webapps/openlogger/.env || cp /home/eric/projects/openlogger/.env.example /home/eric/services/webapps/openlogger/.env
+
+  - name: deploy
+    image: docker:cli
+    commands:
+      - docker compose -f /home/eric/services/webapps/openlogger/docker-compose.yml down 2>/dev/null || true
+      - docker compose -f /home/eric/services/webapps/openlogger/docker-compose.yml up --build --force-recreate -d
+
+  - name: health-check
+    image: docker:cli
+    commands:
+      - sleep 10
+      - docker inspect --format='{{.State.Status}}' openlogger-frontend-1 | grep -q running && echo "Frontend health check passed" || (echo "Frontend health check FAILED" && exit 1)
+      - docker inspect --format='{{.State.Status}}' openlogger-backend-1 | grep -q running && echo "Backend health check passed" || (echo "Backend health check FAILED" && exit 1)

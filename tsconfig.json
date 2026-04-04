@@ -2,29 +2,12 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
-    "lib": ["ES2022"],
-    "declaration": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "outDir": "./dist",
-    "rootDir": "./",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "amplify/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "apps",
-    "packages"
+  "references": [
+    { "path": "./apps/web" }
   ]
 }

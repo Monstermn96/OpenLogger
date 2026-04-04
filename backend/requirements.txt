@@ -1,0 +1,9 @@
+fastapi[standard]
+uvicorn[standard]
+sqlalchemy[asyncio]
+asyncpg
+alembic
+python-jose[cryptography]
+bcrypt
+httpx
+pydantic-settings
