@@ -17,7 +17,7 @@ A web-based application for reading car diagnostic data via Bluetooth OBD2 dongl
 ### Standard OBD2 Parameters
 - Engine RPM, Vehicle Speed, Coolant Temperature, Intake Air Temperature
 - Throttle Position, Engine Load, Timing Advance, MAF Air Flow Rate
-- Fuel Level, Barometric Pressure, Engine Oil Temperature, and more
+- Fuel Level, Barometric Pressure, Engine Oil Temperature, and more.
 
 ### VW Specific Parameters
 - Boost Pressure (Actual/Requested)
